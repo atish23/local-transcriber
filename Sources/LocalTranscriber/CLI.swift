@@ -18,8 +18,14 @@ LocalTranscriber: Private macOS audio capture & local Whisper transcription tool
 USAGE:
   swift run LocalTranscriber <command> [options]
 
+QUICK SHORTCUTS:
+  swift run LocalTranscriber record en             # Record directly in English
+  swift run LocalTranscriber record hi             # Record directly in Hindi
+  swift run LocalTranscriber record mr             # Record directly in Marathi
+  swift run LocalTranscriber record en --title "Team Sync"
+
 COMMANDS:
-  record            Start recording microphone and system audio
+  record [lang]     Start recording microphone and system audio
   finalize-pending  Run deferred final-pass transcription jobs
   ingest-pending    Replay queued /ingest commands in Terminal
   list-displays     List available displays and indices for audio capture
@@ -117,6 +123,8 @@ ENVIRONMENT OVERRIDES:
             var autoIngest = false
             var displayIndex = 0
 
+            let knownLanguages: Set<String> = ["auto", "en", "hi", "mr"]
+
             var i = 1
             while i < args.count {
                 let arg = args[i]
@@ -157,7 +165,11 @@ ENVIRONMENT OVERRIDES:
                         i += 1
                     }
                 default:
-                    break
+                    if knownLanguages.contains(arg.lowercased()) {
+                        language = arg.lowercased()
+                    } else if !arg.hasPrefix("-") && title == "Call Session" {
+                        title = arg
+                    }
                 }
                 i += 1
             }

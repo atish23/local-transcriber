@@ -64,6 +64,31 @@ struct LocalTranscriberTests {
         }
     }
 
+    @Test func testCLIParseRecordLanguageShortcuts() {
+        let cmdEn = CLI.parse(arguments: ["LocalTranscriber", "record", "en"])
+        if case .record(let config) = cmdEn {
+            #expect(config.language == "en")
+            #expect(config.title == "Call Session")
+        } else {
+            Issue.record("Expected .record command for record en")
+        }
+
+        let cmdHi = CLI.parse(arguments: ["LocalTranscriber", "record", "hi", "--title", "Planning Meeting"])
+        if case .record(let config) = cmdHi {
+            #expect(config.language == "hi")
+            #expect(config.title == "Planning Meeting")
+        } else {
+            Issue.record("Expected .record command for record hi")
+        }
+
+        let cmdMr = CLI.parse(arguments: ["LocalTranscriber", "record", "mr"])
+        if case .record(let config) = cmdMr {
+            #expect(config.language == "mr")
+        } else {
+            Issue.record("Expected .record command for record mr")
+        }
+    }
+
     @Test func testCLIParseSessionsAndCleanAudio() {
         let sessionsCmd = CLI.parse(arguments: ["LocalTranscriber", "sessions", "--query", "sprint"])
         switch sessionsCmd {

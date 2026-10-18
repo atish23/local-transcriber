@@ -120,14 +120,20 @@ If prompted, grant access under **System Settings -> Privacy & Security -> Micro
 
 ### 1. Record a Call
 ```bash
-# Standard call recording
-swift run LocalTranscriber record --title "Team Sync" --language auto
+# Language shortcuts (quickest way to start):
+swift run LocalTranscriber record en             # Record in English
+swift run LocalTranscriber record hi             # Record in Hindi
+swift run LocalTranscriber record mr             # Record in Marathi
 
-# With speaker labels and auto-translation
+# With custom title:
+swift run LocalTranscriber record en --title "Architecture Review"
+swift run LocalTranscriber record hi --title "Sprint Planning"
+
+# With speaker labels and auto-translation:
 swift run LocalTranscriber record --title "Design Review" --speaker-labels --task translate
 
-# Skip final pass and file live preview directly
-swift run LocalTranscriber record --title "Quick Standup" --live-only
+# Skip final pass and file live preview directly:
+swift run LocalTranscriber record en --title "Quick Standup" --live-only
 ```
 
 During recording:
