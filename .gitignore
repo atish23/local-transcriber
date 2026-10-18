@@ -1,0 +1,12 @@
+.build/
+.swiftpm/
+transcriber-worker/.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.wav
+*.tmp
+pending-final/
+pending-ingest.txt
+transcriber-worker/vocabulary.local.json
+*.local.json
