@@ -36,7 +36,9 @@ public final class WorkerClient {
     private let stderrPipe: Pipe
     private let stdoutHandle: FileHandle
     private let stdinHandle: FileHandle
+    private let stderrHandle: FileHandle
     private var buffer = Data()
+    private var stderrBuffer = Data()
     private let lock = NSLock()
     private var isTerminated = false
 
@@ -195,12 +197,21 @@ public final class WorkerClient {
         self.stderrPipe = stderr
         self.stdinHandle = stdin.fileHandleForWriting
         self.stdoutHandle = stdout.fileHandleForReading
+        self.stderrHandle = stderr.fileHandleForReading
 
         self.stdoutHandle.readabilityHandler = { [weak self] handle in
             let chunk = handle.availableData
             guard !chunk.isEmpty, let self = self else { return }
             self.lock.lock()
             self.buffer.append(chunk)
+            self.lock.unlock()
+        }
+
+        self.stderrHandle.readabilityHandler = { [weak self] handle in
+            let chunk = handle.availableData
+            guard !chunk.isEmpty, let self = self else { return }
+            self.lock.lock()
+            self.stderrBuffer.append(chunk)
             self.lock.unlock()
         }
 
@@ -211,7 +222,7 @@ public final class WorkerClient {
         }
 
         // Wait for handshake {"ready": true}
-        let handshakeLine = try await readLine(timeout: 15.0)
+        let handshakeLine = try await readLine(timeout: 60.0)
         guard let lineData = handshakeLine.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
               json["ready"] as? Bool == true else {
@@ -310,15 +321,32 @@ public final class WorkerClient {
             }
 
             if Date().timeIntervalSince(startTime) > timeout {
-                throw WorkerClientError.timeout("Timed out waiting for response line after \(timeout)s")
+                let errOutput = getStderrString().trimmingCharacters(in: .whitespacesAndNewlines)
+                if !errOutput.isEmpty {
+                    throw WorkerClientError.timeout("Timed out waiting for response line after \(timeout)s. Worker stderr: \(errOutput)")
+                } else {
+                    throw WorkerClientError.timeout("Timed out waiting for response line after \(timeout)s")
+                }
             }
 
             // Check if process terminated unexpectedly
             if !process.isRunning {
-                throw WorkerClientError.communicationError("Worker process terminated prematurely")
+                let errOutput = getStderrString().trimmingCharacters(in: .whitespacesAndNewlines)
+                let exitCode = process.terminationStatus
+                if !errOutput.isEmpty {
+                    throw WorkerClientError.communicationError("Worker process terminated prematurely (exit code \(exitCode)): \(errOutput)")
+                } else {
+                    throw WorkerClientError.communicationError("Worker process terminated prematurely (exit code \(exitCode))")
+                }
             }
 
             try await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        }
+    }
+
+    private func getStderrString() -> String {
+        lock.withLock {
+            String(data: stderrBuffer, encoding: .utf8) ?? ""
         }
     }
 
@@ -329,9 +357,10 @@ public final class WorkerClient {
         isTerminated = true
 
         stdoutHandle.readabilityHandler = nil
+        stderrHandle.readabilityHandler = nil
         try? stdinHandle.close()
         try? stdoutHandle.close()
-        try? stderrPipe.fileHandleForReading.close()
+        try? stderrHandle.close()
 
         if process.isRunning {
             process.terminate()

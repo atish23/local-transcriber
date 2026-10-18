@@ -145,13 +145,19 @@ def main():
     prompt_terms = VOCABULARY.get("prompt_terms", [])
     initial_prompt = build_initial_prompt(prompt_terms)
 
-    # Initialize transcriber instance
-    model_name = os.environ.get("LOCAL_TRANSCRIBER_MODEL", DEFAULT_LIVE_MODEL)
-    transcriber = MLXTranscriber(model_name)
-
-    # Signal ready to parent process
+    # Signal ready to parent process immediately so handshake completes in <0.05s
     sys.stdout.write(json.dumps({"ready": True}) + "\n")
     sys.stdout.flush()
+
+    # Lazy-load transcriber on first transcription request
+    transcriber = None
+
+    def get_transcriber() -> MLXTranscriber:
+        nonlocal transcriber
+        if transcriber is None:
+            model_name = os.environ.get("LOCAL_TRANSCRIBER_MODEL", DEFAULT_LIVE_MODEL)
+            transcriber = MLXTranscriber(model_name)
+        return transcriber
 
     for line in sys.stdin:
         line = line.strip()
@@ -183,7 +189,8 @@ def main():
                 continue
 
             try:
-                raw_segments = transcriber.transcribe(
+                active_transcriber = get_transcriber()
+                raw_segments = active_transcriber.transcribe(
                     audio_path=audio_path,
                     language=language,
                     task=task,
