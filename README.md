@@ -92,17 +92,13 @@ LocalTranscriber bridges spoken discussions with your permanent knowledge base:
 - Python 3.12 or newer (`brew install python@3.13`).
 - About 5 GB free disk space for Hugging Face model cache.
 
-### Installation
+### 1-Click Installation
 ```bash
-# 1. Clone or navigate to the repository
-cd ~/Documents/local-transcriber
-
-# 2. Run the worker setup script (creates virtual environment and installs dependencies)
-bash scripts/setup-worker.sh
-
-# 3. Build the Swift CLI binary
-swift build
+# Run the 1-click installer from the repo root
+./install.sh
 ```
+
+The installer builds the optimized release binary and installs global shortcuts directly into your `~/.local/bin` directory.
 
 ---
 
@@ -116,24 +112,21 @@ If prompted, grant access under **System Settings -> Privacy & Security -> Micro
 
 ---
 
-## Usage
+## Usage (Run from ANY Directory)
+
+Once installed, the global commands are available anywhere in your terminal:
 
 ### 1. Record a Call
 ```bash
-# Language shortcuts (quickest way to start):
-swift run LocalTranscriber record en             # Record in English
-swift run LocalTranscriber record hi             # Record in Hindi
-swift run LocalTranscriber record mr             # Record in Marathi
+# Language shortcuts (instant start from anywhere):
+record en                                   # Record in English
+record hi                                   # Record in Hindi
+record mr                                   # Record in Marathi
 
-# With custom title:
-swift run LocalTranscriber record en --title "Architecture Review"
-swift run LocalTranscriber record hi --title "Sprint Planning"
-
-# With speaker labels and auto-translation:
-swift run LocalTranscriber record --title "Design Review" --speaker-labels --task translate
-
-# Skip final pass and file live preview directly:
-swift run LocalTranscriber record en --title "Quick Standup" --live-only
+# With custom title and options:
+record en --title "Architecture Review"
+record hi --title "Sprint Planning" --speaker-labels
+record en --live-only                       # Fast preview without final pass
 ```
 
 During recording:
@@ -147,19 +140,19 @@ During recording:
 ### 2. Manage Queued Jobs
 ```bash
 # Process deferred final passes
-swift run LocalTranscriber finalize-pending
+transcribe finalize-pending
 
 # Replay queued claude /ingest commands
-swift run LocalTranscriber ingest-pending
+transcribe ingest-pending
 ```
 
 ### 3. Search and Inspect Past Sessions
 ```bash
 # List all sessions
-swift run LocalTranscriber sessions
+transcribe sessions
 
 # Search by title or transcript content
-swift run LocalTranscriber sessions --query "standup"
+transcribe sessions --query "standup"
 ```
 
 ### 4. Custom Private Vocabulary (Git-Ignored)

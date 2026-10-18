@@ -56,18 +56,61 @@ public final class WorkerClient {
         return 1200.0
     }()
 
+    public static func resolveProjectRoot() -> URL? {
+        if let env = ProcessInfo.processInfo.environment["LOCAL_TRANSCRIBER_HOME"], !env.isEmpty {
+            let url = URL(fileURLWithPath: (env as NSString).expandingTildeInPath)
+            if FileManager.default.fileExists(atPath: url.appendingPathComponent("transcriber-worker/worker.py").path) {
+                return url
+            }
+        }
+
+        // Check executable path (resolving symlinks)
+        if let execURL = Bundle.main.executableURL?.resolvingSymlinksInPath() {
+            var cur = execURL.deletingLastPathComponent()
+            for _ in 0..<5 {
+                let candidate = cur.appendingPathComponent("transcriber-worker").appendingPathComponent("worker.py")
+                if FileManager.default.fileExists(atPath: candidate.path) {
+                    return cur
+                }
+                cur = cur.deletingLastPathComponent()
+            }
+        }
+
+        // Standard machine locations
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let standardCandidates = [
+            home.appendingPathComponent("Documents").appendingPathComponent("local-transcriber"),
+            home.appendingPathComponent(".local").appendingPathComponent("share").appendingPathComponent("local-transcriber")
+        ]
+        for candidate in standardCandidates {
+            let workerFile = candidate.appendingPathComponent("transcriber-worker").appendingPathComponent("worker.py")
+            if FileManager.default.fileExists(atPath: workerFile.path) {
+                return candidate
+            }
+        }
+
+        return nil
+    }
+
     public static func resolvePythonPath() -> String? {
         if let envPath = ProcessInfo.processInfo.environment["LOCAL_TRANSCRIBER_PYTHON"],
            FileManager.default.isExecutableFile(atPath: envPath) {
             return envPath
         }
 
+        // Check project root venv
+        if let root = resolveProjectRoot() {
+            let venvPy = root.appendingPathComponent("transcriber-worker").appendingPathComponent(".venv/bin/python").path
+            if FileManager.default.isExecutableFile(atPath: venvPy) {
+                return venvPy
+            }
+        }
+
         // Check relative venv
         let possibleVenvs = [
             "transcriber-worker/.venv/bin/python",
             "../transcriber-worker/.venv/bin/python",
-            "../../transcriber-worker/.venv/bin/python",
-            "/Users/atishmaske/Documents/local-transcriber/transcriber-worker/.venv/bin/python"
+            "../../transcriber-worker/.venv/bin/python"
         ]
         for rel in possibleVenvs {
             let path = rel.hasPrefix("/") ? rel : (FileManager.default.currentDirectoryPath as NSString).appendingPathComponent(rel)
@@ -98,11 +141,17 @@ public final class WorkerClient {
             return envWorker
         }
 
+        if let root = resolveProjectRoot() {
+            let scriptPath = root.appendingPathComponent("transcriber-worker").appendingPathComponent("worker.py").path
+            if FileManager.default.fileExists(atPath: scriptPath) {
+                return scriptPath
+            }
+        }
+
         let candidates = [
             "transcriber-worker/worker.py",
             "../transcriber-worker/worker.py",
-            "../../transcriber-worker/worker.py",
-            "/Users/atishmaske/Documents/local-transcriber/transcriber-worker/worker.py"
+            "../../transcriber-worker/worker.py"
         ]
         for candidate in candidates {
             let path = candidate.hasPrefix("/") ? candidate : (FileManager.default.currentDirectoryPath as NSString).appendingPathComponent(candidate)

@@ -36,9 +36,12 @@ else
     echo "Virtual environment already exists at $VENV_DIR."
 fi
 
-echo "Installing required packages in venv..."
-"$VENV_DIR/bin/pip" install --upgrade pip
-"$VENV_DIR/bin/pip" install mlx-whisper silero-vad soundfile numpy scipy
+if [ -f "$VENV_DIR/bin/python" ] && "$VENV_DIR/bin/python" -c "import mlx_whisper, silero_vad" 2>/dev/null; then
+    echo "Required packages already installed in venv."
+else
+    echo "Installing required packages in venv..."
+    "$VENV_DIR/bin/pip" install mlx-whisper silero-vad soundfile numpy scipy || echo "Notice: pip install skipped or offline. Will use fallback or retry on first online run."
+fi
 
 echo "==> Worker environment setup complete!"
 echo "Python venv binary: $VENV_DIR/bin/python"

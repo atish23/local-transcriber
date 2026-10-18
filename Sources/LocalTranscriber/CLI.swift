@@ -125,6 +125,10 @@ ENVIRONMENT OVERRIDES:
 
             let knownLanguages: Set<String> = ["auto", "en", "hi", "mr"]
 
+            if args.contains("help") || args.contains("--help") || args.contains("-h") {
+                return .help
+            }
+
             var i = 1
             while i < args.count {
                 let arg = args[i]
