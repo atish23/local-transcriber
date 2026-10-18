@@ -142,8 +142,9 @@ public final class RecordingSession: CaptureEngineDelegate {
     }
 
     private func processLiveChunk(_ chunk: AudioChunk) {
+        guard !isStopping else { return }
         Task { [weak self] in
-            guard let self = self, let worker = self.liveWorker else { return }
+            guard let self = self, !self.isStopping, let worker = self.liveWorker else { return }
 
             let chunkWavURL = self.sessionDir.appendingPathComponent("chunk-\(chunk.source)-\(UUID().uuidString).wav")
             do {
@@ -198,6 +199,10 @@ public final class RecordingSession: CaptureEngineDelegate {
 
         print("\n\n==> Stopping recording...")
         Task {
+            // Disconnect chunk handlers so flushing doesn't queue new live tasks
+            self.micChunker.onChunkReady = nil
+            self.deviceChunker.onChunkReady = nil
+
             await self.captureEngine?.stop()
             self.micChunker.flush()
             self.deviceChunker.flush()

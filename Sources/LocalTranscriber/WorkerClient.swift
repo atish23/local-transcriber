@@ -29,6 +29,12 @@ public enum WorkerClientError: Error, LocalizedError {
     }
 }
 
+private actor RequestSerializer {
+    func run<T>(_ operation: () async throws -> T) async throws -> T {
+        try await operation()
+    }
+}
+
 public final class WorkerClient {
     private let process: Process
     private let stdinPipe: Pipe
@@ -41,6 +47,7 @@ public final class WorkerClient {
     private var stderrBuffer = Data()
     private let lock = NSLock()
     private var isTerminated = false
+    private let serializer = RequestSerializer()
 
     public let chunkTimeout: TimeInterval = {
         if let env = ProcessInfo.processInfo.environment["LOCAL_TRANSCRIBER_CHUNK_TIMEOUT"],
@@ -287,24 +294,44 @@ public final class WorkerClient {
     }
 
     private func sendRequest(_ req: [String: Any], timeout: TimeInterval) async throws -> [String: Any] {
-        let jsonData = try JSONSerialization.data(withJSONObject: req, options: [])
-        var lineData = jsonData
-        lineData.append(contentsOf: [0x0A]) // \n
+        try await serializer.run {
+            let (isClosed, isRunning) = self.lock.withLock {
+                (self.isTerminated, self.process.isRunning)
+            }
+            guard !isClosed && isRunning else {
+                throw WorkerClientError.communicationError("Worker client is terminated or not running")
+            }
 
-        stdinHandle.write(lineData)
+            let jsonData = try JSONSerialization.data(withJSONObject: req, options: [])
+            var lineData = jsonData
+            lineData.append(contentsOf: [0x0A]) // \n
 
-        let responseLine = try await readLine(timeout: timeout)
-        guard let respData = responseLine.data(using: .utf8),
-              let dict = try JSONSerialization.jsonObject(with: respData) as? [String: Any] else {
-            throw WorkerClientError.communicationError("Failed to parse JSON response: \(responseLine)")
+            do {
+                try self.stdinHandle.write(contentsOf: lineData)
+            } catch {
+                throw WorkerClientError.communicationError("Failed to write to worker stdin: \(error.localizedDescription)")
+            }
+
+            let responseLine = try await self.readLine(timeout: timeout)
+            guard let respData = responseLine.data(using: .utf8),
+                  let dict = try JSONSerialization.jsonObject(with: respData) as? [String: Any] else {
+                throw WorkerClientError.communicationError("Failed to parse JSON response: \(responseLine)")
+            }
+            return dict
         }
-        return dict
     }
 
     private func readLine(timeout: TimeInterval) async throws -> String {
         let startTime = Date()
 
         while true {
+            let (isClosed, isRunning) = lock.withLock {
+                (isTerminated, process.isRunning)
+            }
+            if isClosed {
+                throw WorkerClientError.communicationError("Worker client was terminated")
+            }
+
             let extractedLine: String? = lock.withLock {
                 if let newlineIndex = buffer.firstIndex(of: 0x0A) {
                     let lineData = buffer.subdata(in: 0..<newlineIndex)
@@ -330,7 +357,7 @@ public final class WorkerClient {
             }
 
             // Check if process terminated unexpectedly
-            if !process.isRunning {
+            if !isRunning {
                 let errOutput = getStderrString().trimmingCharacters(in: .whitespacesAndNewlines)
                 let exitCode = process.terminationStatus
                 if !errOutput.isEmpty {
@@ -352,9 +379,12 @@ public final class WorkerClient {
 
     public func terminate() {
         lock.lock()
-        defer { lock.unlock() }
-        guard !isTerminated else { return }
+        guard !isTerminated else {
+            lock.unlock()
+            return
+        }
         isTerminated = true
+        lock.unlock()
 
         stdoutHandle.readabilityHandler = nil
         stderrHandle.readabilityHandler = nil

@@ -82,7 +82,7 @@ public final class StreamingWavWriter {
 
         // Write initial header placeholder with 0 data size
         let initialHeader = WavFile.createHeader(dataSize: 0, sampleRate: sampleRate)
-        handle.write(initialHeader)
+        try? handle.write(contentsOf: initialHeader)
     }
 
     public func append(samples: [Float]) {
@@ -93,7 +93,7 @@ public final class StreamingWavWriter {
         guard !isClosed, let handle = fileHandle else { return }
 
         let pcmData = WavFile.floatToPCM16(samples)
-        handle.write(pcmData)
+        try? handle.write(contentsOf: pcmData)
         totalBytesWritten += UInt32(pcmData.count)
     }
 
@@ -105,16 +105,16 @@ public final class StreamingWavWriter {
 
         // Update RIFF total size at offset 4
         let totalFileSize: UInt32 = 36 + totalBytesWritten
-        handle.seek(toFileOffset: 4)
+        try? handle.seek(toOffset: 4)
         var fileSizeLE = totalFileSize.littleEndian
         let fileSizeBytes = withUnsafeBytes(of: &fileSizeLE) { Data($0) }
-        handle.write(fileSizeBytes)
+        try? handle.write(contentsOf: fileSizeBytes)
 
         // Update data chunk size at offset 40
-        handle.seek(toFileOffset: 40)
+        try? handle.seek(toOffset: 40)
         var dataSizeLE = totalBytesWritten.littleEndian
         let dataSizeBytes = withUnsafeBytes(of: &dataSizeLE) { Data($0) }
-        handle.write(dataSizeBytes)
+        try? handle.write(contentsOf: dataSizeBytes)
 
         try? handle.synchronize()
         try? handle.close()

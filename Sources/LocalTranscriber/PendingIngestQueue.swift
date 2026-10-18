@@ -17,8 +17,8 @@ public final class PendingIngestQueue {
             let fileURL = queueFileURL
             if FileManager.default.fileExists(atPath: fileURL.path) {
                 if let handle = try? FileHandle(forWritingTo: fileURL) {
-                    handle.seekToEndOfFile()
-                    handle.write(data)
+                    _ = try? handle.seekToEnd()
+                    try? handle.write(contentsOf: data)
                     try? handle.close()
                 }
             } else {

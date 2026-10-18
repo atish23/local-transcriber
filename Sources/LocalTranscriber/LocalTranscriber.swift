@@ -4,6 +4,7 @@ import ScreenCaptureKit
 @main
 struct LocalTranscriber {
     static func main() async {
+        signal(SIGPIPE, SIG_IGN)
         let command = CLI.parse(arguments: CommandLine.arguments)
 
         switch command {
