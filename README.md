@@ -63,6 +63,27 @@ LocalTranscriber uses a two-process architecture talking over stdin/stdout with 
 
 ---
 
+## What is an LLM Wiki and Why Ingest Transcripts?
+
+### The LLM Wiki Pattern
+This tool is designed to feed directly into an AI-maintained personal knowledge base, following [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
+
+Unlike traditional search or RAG (Retrieval-Augmented Generation), which searches noisy raw documents on the fly for every question, an LLM Wiki **compiles and synthesizes knowledge once** into a persistent, interlinked set of Markdown pages:
+- **`raw/` (Input Layer)**: Immutable source materials (articles, book excerpts, meeting transcripts). You drop sources here; they are never modified.
+- **`wiki/` (Compiled Knowledge Layer)**: Structured encyclopedia pages organized by concepts, entities, and projects. AI assistants (such as Claude, Antigravity, or Codex) read the raw sources and maintain these pages.
+
+### Why Ingest Call Transcripts?
+Real-time meetings, pairing sessions, and architecture reviews contain critical context: architectural trade-offs, system constraints, task assignments, and technical decisions. However:
+- Taking detailed manual notes during complex technical discussions is distracting.
+- Unstructured notes typically get lost or buried in chat channels.
+
+LocalTranscriber bridges spoken discussions with your permanent knowledge base:
+1. **Verbatim Local Capture**: It records both sides of your call on-device and files an accurate transcript into `llm-wiki/raw/misc/local-transcript-YYYY-MM-DD-HHMM-<slug>.md`.
+2. **Automated Synthesis via `/ingest`**: Running `claude "/ingest <path>"` (or `swift run LocalTranscriber ingest-pending`) instructs the LLM to process the raw transcript, extract key architectural decisions, update relevant project pages, create new entity records, and link new facts to past context.
+3. **Zero-Overhead Memory**: Your knowledge base compounds and gets smarter after every call, with zero manual note-taking friction.
+
+---
+
 ## Setup & Prerequisites
 
 ### Prerequisites
